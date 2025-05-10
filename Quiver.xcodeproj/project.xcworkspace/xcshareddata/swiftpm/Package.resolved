@@ -1,0 +1,24 @@
+{
+  "originHash" : "c8b025ac10b54e9f617840b5a403b1426205f5eee7a242c2e06df4c2064a13ab",
+  "pins" : [
+    {
+      "identity" : "swift-version-compare",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mflknr/swift-version-compare.git",
+      "state" : {
+        "revision" : "8d36d25a6c3299f5df81665e18a7025cadec9f80",
+        "version" : "2.0.3"
+      }
+    },
+    {
+      "identity" : "yams",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jpsim/Yams.git",
+      "state" : {
+        "revision" : "b4b8042411dc7bbb696300a34a4bf3ba1b7ad19b",
+        "version" : "5.3.1"
+      }
+    }
+  ],
+  "version" : 3
+}
