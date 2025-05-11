@@ -97,7 +97,7 @@ struct QuiverApp: App {
                 self.commandManager.reloadConfiguration()
             }
             .disabled(self.commandManager.isRunning)
-            .help(if: self.commandManager.isRunning, .init("Stop all running commands first"))
+            .help(if: self.commandManager.isRunning, LocalizedStringKey("Stop all running commands first"))
             
             Button("Show Script Output Folder") {
                 NSWorkspace.shared.open(URL(fileURLWithPath: Settings.shared.applicationDataDirectory))
