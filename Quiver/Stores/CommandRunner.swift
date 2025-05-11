@@ -110,7 +110,7 @@ final class CommandRunner {
             appendRunningCommand(command, CommandExecutionContext(process: process, outputPipe: outputPipe, fileHandle: fileHandle))
 
             command.markAsRunning()
-            Logger.info("Command started: \(command.name)")
+            Logger.info("Command started: \(command.name) process ID: \(process.processIdentifier)")
 
             if settings.areNotificationsEnabled {
                 NotificationService.shared.sendNotificationIfAuthorizedOrRequest(
