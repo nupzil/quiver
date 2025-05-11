@@ -329,7 +329,6 @@
       }
     },
     "Language" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -357,6 +356,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "好的"
+          }
+        }
+      }
+    },
+    "Please enter the code you received:" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入验证码："
           }
         }
       }
@@ -429,6 +438,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "查看输出"
+          }
+        }
+      }
+    },
+    "Stop all running commands first" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先停止所有真正运行中的命令"
+          }
+        }
+      }
+    },
+    "Verification Code" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证码"
           }
         }
       }
