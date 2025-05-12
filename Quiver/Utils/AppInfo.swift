@@ -34,8 +34,8 @@ enum AppInfo {
     static let version = retrieveInfoDictionaryValue("CFBundleShortVersionString", "1.0.0")
     static let buildNumber = retrieveInfoDictionaryValue("CFBundleVersion", "Unknown")
     static let repositoryURL = retrieveInfoDictionaryValue("CFBundleRepositoryURL", "https://github.com/nupzil/quiver")
-    static let releasePageURL = "https://github.com/nupzil/go-otp/releases"
-    static let releasesAPIEndpoint = "https://api.github.com/repos/nupzil/go-otp/releases/latest"
+    static let releasePageURL = "https://github.com/nupzil/quiver/releases"
+    static let releasesAPIEndpoint = "https://api.github.com/repos/nupzil/quiver/releases/latest"
     static let currentYear = Calendar.current.component(.year, from: Date())
     static let developerName = retrieveInfoDictionaryValue("CFBundleDeveloper", "Nupzil")
 }
