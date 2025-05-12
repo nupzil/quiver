@@ -25,11 +25,16 @@
 
 import AppKit
 
+
+
+
 func showAlert(title: String, body: String) {
     let alert = NSAlert()
     alert.icon = NSImage(named: "AppIcon")
     alert.messageText = title
     alert.informativeText = body
     alert.addButton(withTitle: NSLocalizedString("OK", comment: "OK button title"))
+    /// 让 alert 能够获取焦点
+    NSApp.activate(ignoringOtherApps: true)
     alert.runModal()
 }
