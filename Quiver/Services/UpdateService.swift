@@ -107,6 +107,8 @@ final class UpdateService {
         DispatchQueue.main.async {
             let alert = NSAlert()
             alert.icon = NSImage(named: "AppIcon")
+            /// 让 alert 能够获取焦点
+            NSApp.activate(ignoringOtherApps: true)
             guard let versionInfo else {
                 alert.messageText = NSLocalizedString("Error Checking for Updates", comment: "")
                 alert.informativeText = NSLocalizedString("An error occurred while checking for updates. Please try again later.", comment: "")

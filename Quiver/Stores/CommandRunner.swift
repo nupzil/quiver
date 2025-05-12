@@ -283,6 +283,7 @@ final class CommandRunner {
 
                 alert.accessoryView = inputField
 
+                /// 这里使用一个透明的窗口目的：让 alert 内自动聚焦的 input 的光标能够正常显示
                 let dummyWindow = DummyKeyWindow()
                 dummyWindow.center()
                 dummyWindow.makeKeyAndOrderFront(nil)
@@ -300,6 +301,7 @@ final class CommandRunner {
                         Logger.info("User canceled entering the verification code")
                     }
                 }
+                /// 让 alert 能够获得焦点
                 NSApp.activate(ignoringOtherApps: true)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     if let alertWindow = dummyWindow.attachedSheet {
