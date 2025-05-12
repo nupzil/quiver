@@ -90,7 +90,7 @@ final class CommandRunner {
         do {
             if command.isRunning() { return }
             
-            let (process, outputPipe) = buildProcess(command)
+            let (process, inputPipe, outputPipe) = buildProcess(command)
         
             /// 这里创建了输出文件，但是后续可能不会真正的写入数据，即输出文件可能是空的。
             let fileHandle = try outputService.createCommandOutputFile(command)
@@ -98,7 +98,23 @@ final class CommandRunner {
             outputPipe.fileHandleForReading.readabilityHandler = { [weak self, weak fileHandle] handle in
                 guard let self = self, let fileHandle = fileHandle else { return }
                 /// handle.availableData 是计算属性，需要使用变量保存，因为它每次访问都会去获取新的数据。
-                self.handleOutput(data: handle.availableData, fileHandle: fileHandle)
+                let data = handle.availableData
+                self.handleOutput(data: data, fileHandle: fileHandle)
+                
+                /// ⚠️ 特殊处理：仅在 DEBUG 模式下启用。
+                ///
+                /// 针对我的场景，具体是用于 Python 编写的 Telegram Bot 服务。
+                /// 在该服务启动时，`telethon` 库需要用户输入验证码才能完成登录。
+                /// 如果代码中已经提供了手机号，`telethon` 还会要求输入验证码进行身份验证。
+                ///
+                /// 因此，当命令行输出中包含 `"Please enter the code you received:"` 时，
+                /// 会弹出一个输入框供用户输入验证码。
+                ///
+                /// 由于这是针对我的需求的特殊处理，仅在 DEBUG 模式下启用，
+                /// 在生产模式下不涉及该交互式操作。
+                #if DEBUG
+                    processDataFromAvailableData(data: data, inputPipe: inputPipe)
+                #endif
             }
             
             process.terminationHandler = { [weak self] process in
@@ -153,19 +169,146 @@ final class CommandRunner {
         removeRunningCommand(command)
             
         Logger.info("Command manually stopped: \(command.name)")
-            
-        /// handleProcessTermination 会发送消息通知的
     }
     
     func terminateAllProcesses() async {
+        if runningCommands.isEmpty { return }
+        let startTime = Date()
+        Logger.info("Starting to terminate all running processes.")
+
         await withTaskGroup(of: Void.self) { group in
             for command in runningCommands.keys {
                 group.addTask {
+                    Logger.info("Terminating process: \(command)")
                     await self.terminate(command)
+                    Logger.info("Process terminated: \(command)")
                 }
             }
         }
+        let timeInterval = Date().timeIntervalSince(startTime)
+        Logger.info("All termination tasks have been initiated. Total time taken: \(timeInterval) seconds.")
     }
+    
+    #if DEBUG
+        /// 缓冲process的输出，因为之前只是写文件不需要，这里是需要读文件，最好还是缓冲一下
+        /// 这里只记录最新一行的数据
+        private var accumulatedData = Data()
+        class DummyKeyWindow: NSWindow {
+            override var canBecomeKey: Bool { true }
+            override var canBecomeMain: Bool { true }
+
+            override init(contentRect: NSRect, styleMask style: NSWindow.StyleMask, backing backingStoreType: NSWindow.BackingStoreType, defer flag: Bool) {
+                super.init(contentRect: contentRect, styleMask: style, backing: backingStoreType, defer: flag)
+
+                self.alphaValue = 0
+                self.level = .modalPanel
+                self.isReleasedWhenClosed = false
+            }
+
+            convenience init() {
+                let windowWidth: CGFloat = 400
+                let windowHeight: CGFloat = 220
+                let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+                let hostWindowRect = NSRect(
+                    x: screenFrame.midX - windowWidth / 2,
+                    y: screenFrame.height * 0.66,
+                    width: windowWidth,
+                    height: windowHeight
+                )
+                self.init(contentRect: hostWindowRect, styleMask: [], backing: .buffered, defer: false)
+            }
+        }
+
+        private func findVerificationCodeWindow() -> NSWindow? {
+            for window in NSApp.windows {
+                if NSStringFromClass(type(of: window)) == NSStringFromClass(DummyKeyWindow.self) {
+                    return window
+                }
+            }
+            return nil
+        }
+    
+        private func processDataFromAvailableData(data: Data, inputPipe: Pipe) {
+            accumulatedData.append(data)
+            while true {
+                guard let newlineIndex = accumulatedData.firstIndex(of: 0x0A) else { break }
+                let lineData = accumulatedData.subdata(in: 0 ..< newlineIndex)
+                if let line = String(data: lineData, encoding: .utf8) {
+                    handleTelegramBotVerificationCode(data: line, inputPipe: inputPipe)
+                }
+
+                accumulatedData.removeSubrange(0 ... newlineIndex)
+            }
+        }
+
+        private func getLineFromData(_ data: Data) -> String? {
+            if let range = data.range(of: Data([0x0A])) {
+                let lineData = data.subdata(in: 0 ..< range.lowerBound)
+                if let line = String(data: lineData, encoding: .utf8) {
+                    return line
+                }
+            }
+            return nil
+        }
+
+        private func handleTelegramBotVerificationCode(data: String, inputPipe: Pipe) {
+            guard data.contains("Please enter the code you received:") else {
+                return
+            }
+            
+            DispatchQueue.main.async { [weak self, weak inputPipe] in
+                guard let self = self, let inputPipe = inputPipe else { return }
+
+                /// 这里就不能认真考虑这种多次打开的场景，它不应该存在
+                /// FIXME：这里暂时这样处理
+                if let window = findVerificationCodeWindow() {
+                    window.close()
+                }
+
+                let alert = NSAlert()
+                alert.messageText = NSLocalizedString("Please enter the code you received:", comment: "")
+                alert.alertStyle = .informational
+
+                alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+                alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+
+                let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
+                inputField.font = NSFont.monospacedDigitSystemFont(ofSize: 16, weight: .medium)
+                inputField.alignment = .center
+
+                inputField.isBezeled = true
+                inputField.bezelStyle = .roundedBezel
+                inputField.focusRingType = .default
+                inputField.usesSingleLineMode = true
+
+                alert.accessoryView = inputField
+
+                let dummyWindow = DummyKeyWindow()
+                dummyWindow.center()
+                dummyWindow.makeKeyAndOrderFront(nil)
+
+                alert.beginSheetModal(for: dummyWindow) { response in
+                    dummyWindow.close()
+                    if response == .alertFirstButtonReturn {
+                        /// 向 Process 写入数据时，如果对应的程序没有做好安全处理，是可能存在注入攻击等风险的。
+                        let safeInput = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if let data = (safeInput + "\n").data(using: .utf8) {
+                            inputPipe.fileHandleForWriting.write(data)
+                            Logger.info("Successfully wrote the verification code to the process")
+                        }
+                    } else {
+                        Logger.info("User canceled entering the verification code")
+                    }
+                }
+                NSApp.activate(ignoringOtherApps: true)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if let alertWindow = dummyWindow.attachedSheet {
+                        alertWindow.makeFirstResponder(inputField)
+                    }
+                }
+            }
+        }
+    #endif
 }
 
 extension CommandRunner {
@@ -216,9 +359,10 @@ extension CommandRunner {
             Logger.error("Error receiving data response: \(error)")
         }
     }
-    
-    private func buildProcess(_ command: Command) -> (Process, Pipe) {
+
+    private func buildProcess(_ command: Command) -> (Process, Pipe, Pipe) {
         let process = Process()
+        let inputPipe = Pipe()
         let outputPipe = Pipe()
         
         let defaultShell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/bash"
@@ -232,6 +376,7 @@ extension CommandRunner {
         }
 
         process.arguments = shellArguments
+        process.standardInput = inputPipe
         process.standardError = outputPipe
         process.standardOutput = outputPipe
         process.executableURL = URL(fileURLWithPath: defaultShell)
@@ -248,6 +393,6 @@ extension CommandRunner {
         
         Logger.info("Starting command: \(command.name), command: \(command.shellCommand), working directory: \(workingDirectory)")
         
-        return (process, outputPipe)
+        return (process, inputPipe, outputPipe)
     }
 }
